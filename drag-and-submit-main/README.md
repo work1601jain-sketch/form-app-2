@@ -36,6 +36,29 @@ npm i
 npm run dev
 ```
 
+## Deployment
+
+To deploy this project as a single host (frontend + backend) the Express server will serve the built frontend from `/dist`.
+
+Quick steps:
+
+```bash
+npm ci
+npm run build
+cd server
+npm ci
+node index.js
+```
+
+For containerized deployment, build the provided `Dockerfile`:
+
+```bash
+docker build -t drag-and-submit:latest .
+docker run -p 3001:3001 --env-file .env -d drag-and-submit:latest
+```
+
+If you prefer serverless (Vercel), deploy the frontend to Vercel and the backend to a separate host (Railway/Render) and set `VITE_BACKEND_URL` in Vercel environment variables.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

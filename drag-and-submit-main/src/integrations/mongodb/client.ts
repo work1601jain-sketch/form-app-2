@@ -10,6 +10,8 @@ const DATA_API_URL = import.meta.env.VITE_MONGODB_DATA_API_URL;
 const DATA_API_KEY = import.meta.env.VITE_MONGODB_DATA_API_KEY;
 const DATA_SOURCE = import.meta.env.VITE_MONGODB_DATA_SOURCE || 'Cluster0';
 const DATABASE = import.meta.env.VITE_MONGODB_DATABASE || 'formsdb';
+// Optional backend URL for production (e.g. https://api.example.com)
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 // If no Data API URL/key is present, we will call a local backend proxy
 // which by default connects to MongoDB running at mongodb://localhost:27017
@@ -68,37 +70,35 @@ async function callDataApi(action: string, body: any) {
 
 // Helper to call local backend with a fallback directly to the backend host
 async function localFetch(path: string, opts?: RequestInit) {
-  // Try same-origin first (so Vite proxy works when configured)
-  const tryUrl = path;
-  try {
-    const res = await fetch(tryUrl, opts);
-    // If we received HTML (vite/dev server or other), treat as failure and try direct backend
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('text/html')) {
-      // fallback to direct backend host
-      const direct = `http://127.0.0.1:3001${path}`;
-      return fetch(direct, opts);
-    }
-    // If 404/other non-ok and body contains Cannot GET, try direct
-    if (!res.ok) {
-      const text = await res.text();
-      if (text.includes('Cannot GET') || text.trim().startsWith('<!DOCTYPE')) {
-        const direct = `http://127.0.0.1:3001${path}`;
-        return fetch(direct, opts);
-      }
-      // recreate response with the text (since we've consumed it)
-      return new Response(text, { status: res.status, statusText: res.statusText, headers: res.headers });
-    }
-    return res;
-  } catch (e) {
-    // If network fails (proxy/backend down), try direct backend
+  // If BACKEND_URL is set (production), try that host first.
+  // Otherwise try same-origin first so Vite proxy works in development.
+  const tryList = BACKEND_URL ? [`${BACKEND_URL}${path}`, path, `http://127.0.0.1:3001${path}`] : [path, `http://127.0.0.1:3001${path}`];
+  let lastError: any = null;
+  for (const tryUrl of tryList) {
     try {
-      const direct = `http://127.0.0.1:3001${path}`;
-      return fetch(direct, opts);
-    } catch (e2) {
-      throw e;
+      const res = await fetch(tryUrl, opts);
+      const contentType = res.headers.get('content-type') || '';
+      // If we received HTML (vite/dev server or other), treat as failure and try next
+      if (contentType.includes('text/html')) {
+        lastError = new Error('Received HTML from ' + tryUrl);
+        continue;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        // If body suggests a static fallback or Not Found, try next candidate
+        if (text.includes('Cannot GET') || text.trim().startsWith('<!DOCTYPE')) {
+          lastError = new Error(`Not found at ${tryUrl}`);
+          continue;
+        }
+        return new Response(text, { status: res.status, statusText: res.statusText, headers: res.headers });
+      }
+      return res;
+    } catch (e) {
+      lastError = e;
+      continue;
     }
   }
+  throw lastError || new Error('localFetch failed for ' + path);
 }
 
 function wrapResult(data: any, error: unknown = null) {

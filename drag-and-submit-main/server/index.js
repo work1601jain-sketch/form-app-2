@@ -7,6 +7,23 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Serve built frontend when available
+const path = require('path');
+const STATIC_DIR = process.env.STATIC_DIR || path.join(__dirname, '..', 'dist');
+try {
+  app.use(express.static(STATIC_DIR));
+  // SPA fallback to index.html for client-side routing
+  app.get('*', (req, res, next) => {
+    // Only handle non-API routes
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(STATIC_DIR, 'index.html'), (err) => {
+      if (err) next();
+    });
+  });
+} catch (e) {
+  console.warn('Static assets not served, build may be missing:', STATIC_DIR);
+}
+
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017';
 const DATABASE = process.env.MONGO_DATABASE || 'formsdb';
 
@@ -248,4 +265,4 @@ app.delete('/api/forms/:id/submissions/:submissionId', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+app.listen(PORT, () => console.log(`Server listening on ${PORT}, serving static from ${STATIC_DIR}`));
