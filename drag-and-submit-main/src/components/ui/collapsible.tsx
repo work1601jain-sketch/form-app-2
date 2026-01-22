@@ -6,4 +6,5 @@ const CollapsibleTrigger = CollapsiblePrimitive.CollapsibleTrigger;
 
 const CollapsibleContent = CollapsiblePrimitive.CollapsibleContent;
 
-export { Collapsible, CollapsibleTrigger, CollapsibleContent };
+// Moved to src/components/ui-unused/collapsible.tsx
+export {};

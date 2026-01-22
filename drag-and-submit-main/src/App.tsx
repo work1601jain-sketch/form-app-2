@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import FormBuilder from "./pages/FormBuilder";
 import FormView from "./pages/FormView";
 import Submissions from "./pages/Submissions";
+import AllSubmissions from "./pages/AllSubmissions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
               { path: '/auth', element: <Auth /> },
               { path: '/dashboard', element: <ProtectedRoute><Dashboard /></ProtectedRoute> },
               { path: '/builder/:id', element: <ProtectedRoute><FormBuilder /></ProtectedRoute> },
+              { path: '/submissions', element: <ProtectedRoute><AllSubmissions /></ProtectedRoute> },
               { path: '/submissions/:id', element: <ProtectedRoute><Submissions /></ProtectedRoute> },
               { path: '/form/:id', element: <FormView /> },
               { path: '*', element: <NotFound /> },

@@ -264,5 +264,17 @@ app.delete('/api/forms/:id/submissions/:submissionId', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server listening on ${PORT}, serving static from ${STATIC_DIR}`));
+const PORT = parseInt(process.env.PORT, 10) || 3001;
+const server = app.listen(PORT, () => console.log(`Server listening on ${PORT}, serving static from ${STATIC_DIR}`));
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use.`);
+    console.error('Resolve: stop the process using the port or set a different PORT env var.');
+    console.error('Windows: run `netstat -ano | findstr :' + PORT + '` then `taskkill /PID <pid> /F`.');
+    console.error('Unix: run `lsof -i :' + PORT + '` or `fuser -k ' + PORT + '/tcp`');
+    process.exit(1);
+  }
+  console.error('Server error:', err);
+  process.exit(1);
+});
