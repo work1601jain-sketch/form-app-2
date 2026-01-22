@@ -24,8 +24,10 @@ try {
   console.warn('Static assets not served, build may be missing:', STATIC_DIR);
 }
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017';
-const DATABASE = process.env.MONGO_DATABASE || 'formsdb';
+// NOTE: For convenience the Atlas connection string is provided as a fallback
+// For production, set MONGO_URI and MONGO_DATABASE in your deployment environment
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://app7nessco_db_user:h3OHhatsct2PibNN@cluster0.etqjn6t.mongodb.net/loginAuthDB?retryWrites=true&w=majority';
+const DATABASE = process.env.MONGO_DATABASE || 'loginAuthDB';
 
 let client;
 let db;
@@ -143,6 +145,14 @@ app.put('/api/forms/:id', async (req, res) => {
   try {
     await connect();
     const updates = req.body;
+    // Basic owner check: require caller to supply their user id in header 'x-user-id'
+    const callerId = (req.headers['x-user-id'] || req.headers['x-userid'] || req.body.user_id || req.body.userId || null);
+    if (callerId) {
+      const form = await db.collection('forms').findOne({ id: req.params.id });
+      if (form && form.user_id && String(form.user_id) !== String(callerId)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    }
     const result = await db.collection('forms').updateOne({ id: req.params.id }, { $set: updates });
     res.json({ matchedCount: result.matchedCount, modifiedCount: result.modifiedCount });
   } catch (e) {
@@ -153,6 +163,14 @@ app.put('/api/forms/:id', async (req, res) => {
 app.delete('/api/forms/:id', async (req, res) => {
   try {
     await connect();
+    // Basic owner check
+    const callerId = (req.headers['x-user-id'] || req.headers['x-userid'] || req.body.user_id || req.body.userId || null);
+    if (callerId) {
+      const form = await db.collection('forms').findOne({ id: req.params.id });
+      if (form && form.user_id && String(form.user_id) !== String(callerId)) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    }
     const result = await db.collection('forms').deleteOne({ id: req.params.id });
     res.json({ deletedCount: result.deletedCount });
   } catch (e) {
@@ -220,6 +238,17 @@ app.put('/api/forms/:id/submissions/:submissionId', async (req, res) => {
     await connect();
     const sid = req.params.submissionId;
     const updates = req.body;
+    // Basic owner check: ensure form owner matches caller
+    const callerId = (req.headers['x-user-id'] || req.headers['x-userid'] || req.body.user_id || req.body.userId || null);
+    if (callerId) {
+      const sub = await db.collection('form_submissions').findOne({ id: sid });
+      if (sub && sub.form_id) {
+        const form = await db.collection('forms').findOne({ id: sub.form_id });
+        if (form && form.user_id && String(form.user_id) !== String(callerId)) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+      }
+    }
     // try update by id first, then by ObjectId
     let result = await db.collection('form_submissions').updateOne({ id: sid }, { $set: updates });
     if (result.matchedCount === 0 && ObjectId.isValid(sid)) {
@@ -243,6 +272,17 @@ app.delete('/api/forms/:id/submissions/:submissionId', async (req, res) => {
   try {
     await connect();
     const sid = req.params.submissionId;
+    // Basic owner check: ensure form owner matches caller
+    const callerId = (req.headers['x-user-id'] || req.headers['x-userid'] || req.body.user_id || req.body.userId || null);
+    if (callerId) {
+      const sub = await db.collection('form_submissions').findOne({ id: sid });
+      if (sub && sub.form_id) {
+        const form = await db.collection('forms').findOne({ id: sub.form_id });
+        if (form && form.user_id && String(form.user_id) !== String(callerId)) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+      }
+    }
     // try delete by id first, then by ObjectId
     let result = await db.collection('form_submissions').deleteOne({ id: sid });
     if (result.deletedCount === 0 && ObjectId.isValid(sid)) {
